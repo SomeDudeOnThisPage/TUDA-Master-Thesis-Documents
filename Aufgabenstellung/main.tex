@@ -1,0 +1,81 @@
+\documentclass[
+	ngerman,
+	accentcolor=9c,
+	type=intern,
+	marginpar=false
+	]{tudapub}
+
+\usepackage[english, ngerman]{babel}
+\usepackage[autostyle]{csquotes}
+\usepackage{parskip}
+\usepackage[maxcitenames=1, backend=biber]{biblatex}
+
+\let\file\texttt
+\let\code\texttt
+\let\pck\textsf
+\let\cls\textsf
+
+\setlength\parindent{0pt}
+
+\addbibresource{sources.bib}
+
+\begin{document}
+
+\title{Mesh Generation for Porous Materials from 3D CT Scans}
+\subtitle{Tasks and Requirements}
+\author{Robin Buhlmann}
+
+\maketitle
+
+\section{Motivation}
+Modelling the characteristics of groundwater flow, or understanding the properties of underground oil, water or gas reservoirs are vital for many fields of geological engineering. Facing large-scale climate change, in order to facilitate increased utilization of geothermal resources via heat pumps, or to exploit the remaining natural oil and gas reserves, accurately determining the permeability of porous media remains one of the most important aspects of hydrology and petrology to this day, as well as in the foreseeable future.\par
+
+Permeability defines the ability of fluid or gases to traverse porous media (e.g. rock or sediment). It is directly related to the porosity of the medium, defining the ratio of air to solid material. Traditional empirical evaluation of rock samples involves destructive mechanisms to determine, for instance, chemical composition, freeze-thaw-cycle-resistance or hardness, after which the sample often cannot be used again to determine porosity, permeability or thermal conductivity.\par
+
+To avoid time consuming, costly laboratory analysis, non-destructive imaging technologies like X-Ray computed tomography (CT) allow creating high resolution volumetric representations of rock structure and pore distribution \cite{iassonov_segmentation_2009}. To run simulations, authors often transform the CT data (usually given as a form of array data texture) into either pore-networks or volumetric meshes. However, many studies and publications within the field of geological engineering rely on structured meshes to generate Digital Rock/Replica Models (DRMs) \cite{guibert_computational_2015}\footnote{There are many more instances, each usually doing their own kind of mesh refinement, to keep it short I don't cite much here.}.
+
+This is unsurprising, as structured meshes typically offer advantages in storage efficiency, are straightforward to generate, and are easy to integrate with numerical solvers, such as the computational fluid dynamics (CDF) solver OpenFOAM \cite{noauthor_openfoam_2024}. However, structured meshes can suffer from limitations in accuracy when used for pore-scale DRMs, which unstructured meshes or hybrid approaches can -- not without their own complications, see \textcite{dixon_systematic_2013} -- implicitly solve \cite{hammouti_error_2024}.
+
+Other authors rely on commercial 'black-box'-Software to generate meshes, or utilize ready-made open-source solutions like the OpenFOAM utility 'snappyHexMesh', used to refine a triangulated surfaces into tetrahedal meshes \cite{icardi_pore-scale_2014, guibert_computational_2015}.
+
+Further, studies commonly employ traditional isosurface extraction algorithms, such as the Marching Cube algorithm, followed by Delauney triangulation to generate a tetrahedal mesh. A limitation of this approach is, that generally, mesh refinement strategies have to be utilized to ensure usability with CFD solvers \cite{zhou_novel_2017}.\par
+
+\section{Questions}
+\begin{enumerate}
+	\item How can recent advancements in envelope meshing algorithms, such as the TetWild algorithm, be utilized to generate tetrahedral meshes from CT-scanned rock data, by potentially bypassing mesh repair stages during the isosurface generation step \cite{icardi_pore-scale_2014}, or streamlining the preparation of the volumetric mesh for CFD solver software \cite{zhou_novel_2017}, with quality validation performed by guideline of, e.g., OpenFOAM's internal \textit{meshQualityControls} data points\footnote{compare \url{https://www.openfoam.com/documentation/guides/latest/doc/guide-meshing-snappyhexmesh-meshquality.html}}? tetWild has been previously used in the study of porous materials, as performed by \textcite{velasquez-parra_phase_2024}. However, no comprehensive evaluation of mesh quality or algorithmic runtime has been conducted\footnote{The authors briefly mention their use of the algorithm in a single sentence, but do not elaborate further.}.
+	
+	\item How can unstructured meshes or hybrid approaches be optimized for modelling pore-scale  DRMs, compared to traditional structured meshes\footnote{TODO: Not happy with this, refine this question on Tuesday... Maybe compare to blockMesh or something on the Salome platform? Not great, I don't like it...}?
+\end{enumerate}
+
+\section{Tasks}
+The primary task of this thesis is to propose and implement a unified scientific workflow to transform real-world CT data of porous materials into an unstructured, or semi-structured ("hybrid") mesh.\par
+
+The primary approach of this thesis will be based on \citeauthor{hammouti_error_2024}'s approach, in which the authors create and evaluate a semi-unstructured mesh of a packed bed made of nearly-ideal glass beads. Of special interest are solid-solid contact points, as noted by \textcite{dixon_systematic_2013, hammouti_error_2024}, which require utilization of mesh repair strategies, as well as shrinkage, growing or bridging of particles to avoid poor quality mesh cells \cite{calis_cfd_2001, dixon_systematic_2013, hammouti_error_2024}. This may prove challenging in uncontrolled, non-packed-bed environments with unknown geometry. Their approach effectively mitigates most error arising from needing to shrink or expand the spheres before creating the final mesh. They conclude that their approach is suitable for more complex geometries consisting of convex grains, as can be found in real-world CT data, which is to be evaluated in this thesis. However, rock structures consisting of fine-grained matrices may prove challenging, as we cannot rely on convex representation of grains. In such cases, 'traditional' isosurface extraction algorithms may have to be applied.\par
+
+\citeauthor{hammouti_error_2024}'s approach is to be seen as a reference and guideline, and different technologies or approaches, especially in the area of mesh generation and refinement -- e.g. \citeauthor{hu_fast_2020}'s TetWild algorithm \cite{hu_fast_2020} -- should be evaluated and/or used.\par
+
+The focus of this thesis will lay primarily in the steps of transforming the prepared CT data into a surface mesh prior to tetrahedralization, and the tetrahedralization step itself. However, due to requirement 4 (see below), additional care may have to be taken in transforming input data stemming from rocks with highly differing porosities.\par
+
+The secondary task, focused on evaluation, is to compare the implementation to existing methods and mesh types, e.g. structured meshes or, if applicable, other unstructured mesh generation methods like OpenFOAMs 'snappyHexMesh'.\par
+
+It is important to note that the use of CFD solvers in numerical simulations is to be presented only as an example, this thesis focuses primarily on the mesh generation itself, rather than optimization for CFD applications. Performing further optimisations related to the outputs' use and performance in CFD solvers is left to future work.\par
+
+\subsection{Requirements}
+\begin{enumerate}
+	\item The workflow should be configurable to accept real-world examples of CT data extracted from rock samples, and produce a mesh usable by the CFD solver OpenFOAM\footnote{as in, acceptable by OpenFOAMs internal preprocessing FOAM conversion utilities, see \textit{mesh conversion}: \url{https://www.openfoam.com/documentation/user-guide/a-reference/a.2-standard-utilities\#x33-136001r2}}. Data may be acquired from Sources such as the Digital Rocks Portal \cite{prodanovic_digital_2015}.
+	\item The workflow should be evaluated based on common program metrics.
+	\item The output mesh should be evaluated based on fit to the input data\footnote{TODO: figure out how to actually measure/do this, maybe something related to how closely the initial surface mesh fits the generated volumetric mesh? \citeauthor{hammouti_error_2024} do something similiar with nearly ideal beads, but they remark about the difficulty/uncertainty when attempting to compare non-uniform unknown grains/geometry.}. Additionally, metrics related to the mesh itself should be compared with a simple grid-based approach, and/or common approaches like OpenFOAMs \textit{snappyHexMesh}.
+	\item The workflow should be evaluated using rock types with varying properties, particularly focusing on porosity. This may include low-porosity rocks such as claystone or shale, and high-porosity rocks like different types of sandstone.
+\end{enumerate}
+
+Iteration and optimization of the implementation should be performed as necessary or possible in the scope and timeframe of this thesis, based on the evaluations listed above. This may include, but is not limited to:
+\begin{itemize}
+	\item Parallel processing, e.g. initial processing of the CT data is inherently embarrassingly parallel.
+	\item Further mesh optimization, both in terms of quality, as well as memory efficiency.
+	\item Runtime/complexity optimizations.
+\end{itemize}
+
+\newpage
+\printbibliography
+
+\end{document}
